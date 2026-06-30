@@ -6,6 +6,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity';
 import { Account } from './entities/account.entity';
 import { Transaction } from './entities/transaction.entity';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -29,6 +31,10 @@ import { Transaction } from './entities/transaction.entity';
         entities: [User, Account, Transaction],
       }),
     }),
+
+    UsersModule,
+
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
