@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Account } from '../entities/account.entity';
 import { Transaction, TransactionType, TransactionStatus } from '../entities/transaction.entity';
 import { TransferDto } from './dto/transfer.dto';
@@ -91,5 +91,52 @@ export class TransactionsService {
         } finally {
             await queryRunner.release();
         }
+    }
+
+    async getTransactions(userId: string, accountNumber: string, page: number = 1, limit: number = 10) {
+        const account = await this.dataSource.manager.findOne(Account, {
+            where: {
+                accountNumber: accountNumber,
+                user: { id: userId }
+            }
+        });
+
+        if (!account) {
+            throw new NotFoundException('Tài khoản không tồn tại hoặc không thuộc quyền sở hữu của bạn.');
+        }
+
+        const [transactions, total] = await this.dataSource.manager.findAndCount(Transaction, {
+            where: [
+                { fromAccount: { id: account.id } },
+                { toAccount: { id: account.id } }
+            ],
+            relations: { fromAccount: true, toAccount: true }, // join de lay account number
+            order: { createdAt: 'DESC' },
+            skip: (page - 1) * limit, // so ban ghi bo qua
+            take: limit
+        });
+
+        const formattedData = transactions.map(tx => {
+            const isMoneyOut = tx.fromAccount?.id === account.id;
+
+            return {
+                id: tx.id,
+                amount: tx.amount,
+                type: isMoneyOut ? 'EXPENSE' : 'INCOME',
+                status: tx.status,
+                description: tx.description,
+                createdAt: tx.createdAt,
+                fromAccount: tx.fromAccount?.accountNumber,
+                toAccount: tx.toAccount?.accountNumber
+            };
+        });
+
+        return {
+            data: formattedData,
+            total,
+            currentPage: Number(page),
+            totalPages: Math.ceil(total / limit),
+            limit: Number(limit)
+        };
     }
 }
