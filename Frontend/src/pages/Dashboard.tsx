@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../api/axiosClient';
-import { Wallet, CreditCard, Mail, User } from 'lucide-react';
+import { Wallet, CreditCard, Mail, User, Copy, Check } from 'lucide-react';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
     const [accountData, setAccountData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         const fetchAccount = async () => {
@@ -35,6 +36,12 @@ const Dashboard = () => {
         currency: 'VND'
     }).format(account.balance);
 
+    const handleCopy = () => {
+        navigator.clipboard.writeText(accountData.account.accountNumber);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+
     return (
         <div className="dashboard-container">
             <h1 className="welcome-text">Xin chào, <span>{user.fullName}</span> 👋</h1>
@@ -49,7 +56,16 @@ const Dashboard = () => {
                     <div className="account-info-box">
                         <div>
                             <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>SỐ TÀI KHOẢN</div>
-                            <span>{account.accountNumber}</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '16px' }}>{account.accountNumber}</span>
+                                <button
+                                    onClick={handleCopy}
+                                    style={{ background: 'none', border: 'none', color: copied ? '#10b981' : 'white', cursor: 'pointer', padding: 0 }}
+                                    title="Copy số tài khoản"
+                                >
+                                    {copied ? <Check size={16} /> : <Copy size={16} />}
+                                </button>
+                            </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>LOẠI TIỀN</div>

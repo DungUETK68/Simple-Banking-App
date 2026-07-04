@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
-import { Send, CheckCircle2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 import '../styles/transfer.css';
 
 const Transfer = () => {
@@ -107,6 +107,7 @@ const Transfer = () => {
             });
 
             setSuccessMessage('Giao dịch thành công!');
+            setTimeout(() => setSuccessMessage(''), 4000);
             // xoa form
             setFormData(prev => ({ ...prev, toAccountNumber: '', amount: '', description: '' }));
 
@@ -117,6 +118,7 @@ const Transfer = () => {
             }
         } catch (error) {
             setErrorMessage(error.response?.data?.message || 'Giao dịch thất bại, vui lòng thử lại.');
+            setTimeout(() => setErrorMessage(''), 4000);
         } finally {
             setLoading(false);
         }
@@ -134,13 +136,15 @@ const Transfer = () => {
                     <h2>Chuyển tiền</h2>
                 </div>
                 {successMessage && (
-                    <div className="success-message">
-                        <CheckCircle2 size={20} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '8px' }} />
-                        {successMessage}
+                    <div className="toast-message success">
+                        ✅ {successMessage}
                     </div>
                 )}
-
-                {errorMessage && <div className="error-message">{errorMessage}</div>}
+                {errorMessage && (
+                    <div className="toast-message error">
+                        ⚠️ {errorMessage}
+                    </div>
+                )}
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>Tài khoản nguồn</label>
