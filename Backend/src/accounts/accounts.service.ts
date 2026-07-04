@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { User } from '../entities/user.entity';
+import { Account } from 'src/entities/account.entity';
 
 @Injectable()
 export class AccountsService {
@@ -33,5 +34,18 @@ export class AccountsService {
                 } : null
             }
         };
+    }
+
+    async getAccountOwnerName(accountNumber: string) {
+        const account = await this.dataSource.manager.findOne(Account, {
+            where: { accountNumber },
+            relations: { user: true }
+        });
+
+        if (!account) {
+            throw new NotFoundException('Tài khoản không tồn tại');
+        }
+
+        return { fullName: account.user.fullName };
     }
 }

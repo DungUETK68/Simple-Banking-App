@@ -14,6 +14,7 @@ const Transfer = () => {
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const [receiverName, setReceiverName] = useState('');
 
     // tai danh sach account
     useEffect(() => {
@@ -32,6 +33,26 @@ const Transfer = () => {
 
         fetchMyAccount();
     }, []);
+
+    useEffect(() => {
+        const fetchReceiverName = async () => {
+            if (formData.toAccountNumber.length < 10) {
+                setReceiverName('');
+                return;
+            }
+
+            try {
+                const response: any = await axiosClient.get(`/accounts/info/${formData.toAccountNumber}`);
+                setReceiverName(response.data.fullName);
+            } catch (error) {
+                setReceiverName('Không tìm thấy tài khoản hợp lệ');
+            }
+        };
+
+        const timeoutId = setTimeout(() => { fetchReceiverName(); }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.toAccountNumber]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -132,7 +153,7 @@ const Transfer = () => {
                         {account && (
                             <div className="balance-hint">
                                 <span>Số dư khả dụng:</span>
-                                <span style={{ fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                                <span>
                                     {formatMoney(account.balance)}
                                 </span>
                             </div>
@@ -149,6 +170,11 @@ const Transfer = () => {
                             onChange={handleChange}
                             required
                         />
+                        {receiverName && (
+                            <div style={{ marginTop: '8px', fontSize: '14px', fontWeight: 'bold', color: receiverName.includes('Không tìm thấy') ? '#ef4444' : '#10b981' }}>
+                                Người nhận: {receiverName}
+                            </div>
+                        )}
                     </div>
                     <div className="form-group">
                         <label>Số tiền chuyển (VND)</label>

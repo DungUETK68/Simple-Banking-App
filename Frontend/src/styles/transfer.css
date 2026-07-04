@@ -59,9 +59,10 @@
 }
 
 .balance-hint {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-top: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #10b981;
+    margin-top: 8px;
     display: flex;
     justify-content: space-between;
 }

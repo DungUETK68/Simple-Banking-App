@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, UseGuards, Req, Param } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -11,5 +11,11 @@ export class AccountsController {
     getMyAccount(@Req() req: any) {
         const userId = req.user.id;
         return this.accountsService.getMyProfileAndBalance(userId);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Get('info/:accountNumber')
+    getAccountInfo(@Param('accountNumber') accountNumber: string) {
+        return this.accountsService.getAccountOwnerName(accountNumber);
     }
 }
