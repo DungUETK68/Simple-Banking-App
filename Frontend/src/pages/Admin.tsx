@@ -6,6 +6,8 @@ import '../styles/admin.css';
 const Admin = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [selectedUser, setSelectedUser] = useState<any>(null);
 
     const fetchUsers = async () => {
         try {
@@ -22,17 +24,18 @@ const Admin = () => {
         fetchUsers();
     }, []);
 
-    const toggleStatus = async (userId: string, currentStatus: string) => {
-        const newStatus = currentStatus === 'active' ? 'locked' : 'active';
+    const handleOpenModal = (user: any) => {
+        setSelectedUser(user);
+        setShowConfirmModal(true);
+    };
 
-        if (!window.confirm(`Bạn có chắc chắn muốn ${newStatus === 'locked' ? 'Khóa' : 'Mở khóa'} tài khoản này?`)) {
-            return;
-        }
+    const confirmToggleStatus = async () => {
+        if (!selectedUser) return;
+        const newStatus = selectedUser.status === 'active' ? 'locked' : 'active';
 
         try {
-            await axiosClient.patch(`/admin/users/${userId}/status`, {
-                status: newStatus
-            });
+            await axiosClient.patch(`/admin/users/${selectedUser.id}/status`, { status: newStatus });
+            setShowConfirmModal(false);
             fetchUsers();
         } catch (error) {
             alert('Có lỗi xảy ra!');
@@ -76,7 +79,7 @@ const Admin = () => {
                                 <td>
                                     {user.role !== 'admin' && (
                                         <button
-                                            onClick={() => toggleStatus(user.id, user.status)}
+                                            onClick={() => handleOpenModal(user)}
                                             className={`action-btn ${user.status === 'active' ? 'btn-lock' : 'btn-unlock'}`}
                                         >
                                             {user.status === 'active' ? (
@@ -92,6 +95,36 @@ const Admin = () => {
                     </tbody>
                 </table>
             </div>
+
+            {showConfirmModal && selectedUser && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3 style={{ marginTop: 0 }}>Xác nhận thao tác</h3>
+                        <p>
+                            Bạn có chắc chắn muốn <strong style={{ color: selectedUser.status === 'active' ? '#ef4444' : '#10b981', fontSize: '16px' }}>
+                                {selectedUser.status === 'active' ? 'Khóa' : 'Mở khóa'}
+                            </strong> tài khoản này không?
+                        </p>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+                            {selectedUser.status === 'active'
+                                ? 'Người dùng sẽ bị văng ra ngoài và không thể đăng nhập lại.'
+                                : 'Người dùng sẽ có thể đăng nhập và giao dịch bình thường.'}
+                        </p>
+                        <div className="modal-actions">
+                            <button className="modal-btn cancel" onClick={() => setShowConfirmModal(false)}>
+                                Hủy bỏ
+                            </button>
+                            <button
+                                className="modal-btn confirm"
+                                onClick={confirmToggleStatus}
+                                style={{ backgroundColor: selectedUser.status === 'active' ? '#ef4444' : '#10b981' }}
+                            >
+                                Xác nhận
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

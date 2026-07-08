@@ -26,7 +26,11 @@ axiosClient.interceptors.response.use((response) => {
 }, async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) { // loi token va chua thu lai
+    if (error.response?.status === 401 &&
+        !originalRequest._retry &&
+        originalRequest.url !== '/auth/login' &&
+        originalRequest.url !== '/auth/register'
+    ) { // loi token va chua thu lai
         originalRequest._retry = true; // da thu
         if (!isRefreshing) {
             isRefreshing = true;
