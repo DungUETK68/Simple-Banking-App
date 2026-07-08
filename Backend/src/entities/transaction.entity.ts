@@ -4,12 +4,14 @@ import { Account } from './account.entity';
 export enum TransactionType {
     TRANSFER = 'transfer',
     DEPOSIT = 'deposit',
+    REVERSAL = 'reversal',
 }
 
 export enum TransactionStatus {
     SUCCESS = 'success',
     FAILED = 'failed',
     PENDING = 'pending',
+    REVERSED = 'reversed',
 }
 
 @Entity('transactions')
@@ -42,4 +44,8 @@ export class Transaction {
     @ManyToOne(() => Account, (account) => account.receivedTransactions)
     @JoinColumn({ name: 'to_account_id' })
     toAccount: Account;
+
+    @ManyToOne(() => Transaction, { nullable: true })
+    @JoinColumn({ name: 'original_transaction_id' })
+    originalTransaction: Transaction;
 }

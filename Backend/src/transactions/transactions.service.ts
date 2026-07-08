@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, HttpException, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { DataSource, In } from 'typeorm';
 import { Account } from '../entities/account.entity';
 import { Transaction, TransactionType, TransactionStatus } from '../entities/transaction.entity';
@@ -107,6 +107,96 @@ export class TransactionsService {
             }
 
             throw new InternalServerErrorException('Giao dịch thất bại do lỗi hệ thống.');
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    async reverseTransaction(transactionId: string) {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            const originalTx = await queryRunner.manager.createQueryBuilder(Transaction, 'tx')
+                .innerJoinAndSelect('tx.fromAccount', 'fromAccount')
+                .innerJoinAndSelect('tx.toAccount', 'toAccount')
+                .where('tx.id = :id', { id: transactionId })
+                .setLock('pessimistic_write')
+                .getOne();
+
+            if (!originalTx) {
+                throw new NotFoundException('Không tìm thấy giao dịch gốc.');
+            }
+            if (originalTx.status === TransactionStatus.REVERSED) {
+                throw new BadRequestException('Giao dịch này đã được hoàn tiền rồi.');
+            }
+            if (originalTx.status !== TransactionStatus.SUCCESS) {
+                throw new BadRequestException('Chỉ có thể hoàn tiền giao dịch thành công.');
+            }
+            if (originalTx.type === TransactionType.REVERSAL) {
+                throw new BadRequestException('Không thể hoàn lại giao dịch hoàn tiền.');
+            }
+
+            const originalSender = originalTx.fromAccount;
+            const originalReceiver = originalTx.toAccount;
+
+            if (Number(originalReceiver.balance) < Number(originalTx.amount)) {
+                throw new BadRequestException('Người nhận không đủ số dư để hoàn lại!');
+            }
+
+            originalReceiver.balance = Number(originalReceiver.balance) - Number(originalTx.amount);
+            originalSender.balance = Number(originalSender.balance) + Number(originalTx.amount);
+            await queryRunner.manager.save(originalReceiver);
+            await queryRunner.manager.save(originalSender);
+
+            // tao giao dich
+            const reversalTx = new Transaction();
+            reversalTx.amount = originalTx.amount;
+            reversalTx.type = TransactionType.REVERSAL;
+            reversalTx.status = TransactionStatus.SUCCESS;
+            reversalTx.description = `Hoàn tiền cho giao dịch bị lỗi (Mã: ${originalTx.id})`;
+            reversalTx.fromAccount = originalReceiver;
+            reversalTx.toAccount = originalSender;
+            reversalTx.originalTransaction = originalTx;
+            const savedReversalTx = await queryRunner.manager.save(reversalTx);
+
+            // ghi vao so cai
+            const debitEntry = new LedgerEntry();
+            debitEntry.account = originalReceiver;
+            debitEntry.transaction = savedReversalTx;
+            debitEntry.type = LedgerEntryType.DEBIT;
+            debitEntry.amount = originalTx.amount;
+            debitEntry.balanceAfter = originalReceiver.balance;
+            await queryRunner.manager.save(debitEntry);
+
+            const creditEntry = new LedgerEntry();
+            creditEntry.account = originalSender;
+            creditEntry.transaction = savedReversalTx;
+            creditEntry.type = LedgerEntryType.CREDIT;
+            creditEntry.amount = originalTx.amount;
+            creditEntry.balanceAfter = originalSender.balance;
+            await queryRunner.manager.save(creditEntry);
+
+            // doi trang thai giao dich goc
+            originalTx.status = TransactionStatus.REVERSED;
+            await queryRunner.manager.save(originalTx);
+
+            await queryRunner.commitTransaction();
+
+            return {
+                message: 'Hoàn tiền thành công!',
+                data: {
+                    reversalTransactionId: savedReversalTx.id
+                }
+            };
+        } catch (error) {
+            console.error('LỖI KHI HOÀN TIỀN:', error);
+            await queryRunner.rollbackTransaction();
+            if (error instanceof HttpException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Lỗi hệ thống khi hoàn tiền.');
         } finally {
             await queryRunner.release();
         }

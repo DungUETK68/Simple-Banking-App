@@ -1,7 +1,8 @@
-import { Controller, Post, Body, UseGuards, Req, Get, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get, Query, BadRequestException, Param } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { TransferDto } from './dto/transfer.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -13,6 +14,12 @@ export class TransactionsController {
         const userId = req.user.id;
 
         return this.transactionsService.transfer(userId, transferDto);
+    }
+
+    @Post(':id/reverse')
+    @UseGuards(RolesGuard)
+    reverseTransaction(@Param('id') id: string) {
+        return this.transactionsService.reverseTransaction(id);
     }
 
     @Get()
