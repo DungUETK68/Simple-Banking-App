@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { User, UserStatus } from '../entities/user.entity';
 import { DataSource } from 'typeorm';
 import { LedgerEntry } from '../entities/ledger-entry.entity';
+import { AuditLog } from 'src/entities/audit-log.entity';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,4 +46,14 @@ export class AdminController {
             throw new BadRequestException(error.message);
         }
     }
+
+    @Get('audit-logs')
+    @UseGuards(RolesGuard) // Yêu cầu quyền Admin (Nếu bạn đã setup @Roles thì gắn thêm vào)
+    async getAuditLogs() {
+        return this.dataSource.manager.find(AuditLog, {
+            order: { createdAt: 'DESC' }, // Lấy log mới nhất
+            take: 50
+        });
+    }
+
 }
