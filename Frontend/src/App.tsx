@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import AdminLedger from './pages/AdminLedger';
 import AdminAuditLog from './pages/AdminAuditLog';
+import AdminTransactions from './pages/AdminTransactions';
 import Transfer from './pages/Transfer';
 import History from './pages/History';
 import Settings from './pages/Settings';
@@ -51,6 +52,7 @@ function App() {
         <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          <Route path="/admin/transactions" element={<AdminRoute><AdminTransactions /></AdminRoute>} />
           <Route path="/admin/ledger" element={<AdminRoute><AdminLedger /></AdminRoute>} />
           <Route path="/admin/audit" element={<AdminRoute><AdminAuditLog /></AdminRoute>} />
           <Route path="/transfer" element={<Transfer />} />

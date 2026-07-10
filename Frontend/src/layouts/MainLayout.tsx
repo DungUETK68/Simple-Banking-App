@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Send, History, LogOut, Wallet, Users, BookOpen, Activity, Settings } from 'lucide-react';
+import { LayoutDashboard, Send, History, LogOut, Wallet, Users, BookOpen, Activity, Settings, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import '../styles/layout.css';
 
@@ -42,12 +42,16 @@ const MainLayout = () => {
                                 <Users size={20} />
                                 Quản lý người dùng
                             </NavLink>
+                            <NavLink to="/admin/transactions" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                <Activity size={20} />
+                                Giao dịch hệ thống
+                            </NavLink>
                             <NavLink to="/admin/ledger" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                                 <BookOpen size={20} />
                                 Sổ cái kép
                             </NavLink>
                             <NavLink to="/admin/audit" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                                <Activity size={20} />
+                                <ShieldAlert size={20} />
                                 Nhật ký hệ thống
                             </NavLink>
                         </>

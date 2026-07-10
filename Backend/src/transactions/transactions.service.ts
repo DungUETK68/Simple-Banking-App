@@ -187,7 +187,7 @@ export class TransactionsService {
             reversalTx.amount = originalTx.amount;
             reversalTx.type = TransactionType.REVERSAL;
             reversalTx.status = TransactionStatus.SUCCESS;
-            reversalTx.description = `Hoàn tiền cho giao dịch bị lỗi (Mã: ${originalTx.id})`;
+            reversalTx.description = `Hoàn tiền cho giao dịch (Mã: ${originalTx.id})`;
             reversalTx.fromAccount = originalReceiver;
             reversalTx.toAccount = originalSender;
             reversalTx.originalTransaction = originalTx;

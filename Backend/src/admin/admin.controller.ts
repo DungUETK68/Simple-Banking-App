@@ -102,4 +102,18 @@ export class AdminController {
     getUserHistory(@Param('id') id: string) {
         return this.adminService.getUserHistory(id);
     }
+
+    @Get('transactions')
+    @UseGuards(RolesGuard)
+    getAllTransactions(
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '10',
+        @Query('type') type?: string,
+        @Query('status') status?: string,
+        @Query('transactionId') transactionId?: string,
+    ) {
+        return this.adminService.getAllTransactions(Number(page), Number(limit), {
+            type, status, transactionId
+        });
+    }
 }
