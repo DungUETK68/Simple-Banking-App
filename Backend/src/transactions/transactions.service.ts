@@ -9,7 +9,7 @@ import { LedgerEntry, LedgerEntryType } from '../entities/ledger-entry.entity';
 export class TransactionsService {
     constructor(private dataSource: DataSource) { }
 
-    async transfer(userId: string, transferDto: TransferDto) {
+    async transfer(userId: string, userRole: string, transferDto: TransferDto) {
         const { fromAccountNumber, toAccountNumber, amount, description, idempotencyKey } = transferDto;
 
         if (fromAccountNumber === toAccountNumber) {
@@ -31,7 +31,7 @@ export class TransactionsService {
 
             if (isFromFirst) {
                 fromAccount = await queryRunner.manager.findOne(Account, {
-                    where: { accountNumber: fromAccountNumber, user: { id: userId } },
+                    where: userRole === 'customer' ? { accountNumber: fromAccountNumber, user: { id: userId } } : { accountNumber: fromAccountNumber },
                     lock: { mode: 'pessimistic_write' }
                 });
                 if (!fromAccount) throw new NotFoundException('Không tìm thấy tài khoản nguồn.');
@@ -49,7 +49,7 @@ export class TransactionsService {
                 if (!toAccount) throw new NotFoundException('Tài khoản người nhận không tồn tại.');
 
                 fromAccount = await queryRunner.manager.findOne(Account, {
-                    where: { accountNumber: fromAccountNumber, user: { id: userId } },
+                    where: userRole === 'customer' ? { accountNumber: fromAccountNumber, user: { id: userId } } : { accountNumber: fromAccountNumber },
                     lock: { mode: 'pessimistic_write' }
                 });
                 if (!fromAccount) throw new NotFoundException('Không tìm thấy tài khoản nguồn.');
@@ -60,25 +60,33 @@ export class TransactionsService {
                 throw new BadRequestException('Số dư tài khoản không đủ để thực hiện giao dịch.');
             }
 
-            // chuyen tien
-            fromAccount.balance = currentBalance - amount;
-            await queryRunner.manager.save(fromAccount);
-
-            toAccount.balance = Number(toAccount.balance) + amount;
-            await queryRunner.manager.save(toAccount);
+            const LARGE_TX_LIMIT = 100000000;
+            const isLargeTx = amount >= LARGE_TX_LIMIT && userRole === 'teller';
 
             // luu giao dich
             const transaction = new Transaction();
-
             transaction.amount = amount;
             transaction.idempotencyKey = idempotencyKey;
             transaction.type = TransactionType.TRANSFER;
-            transaction.status = TransactionStatus.SUCCESS;
+            transaction.status = isLargeTx ? TransactionStatus.PENDING : TransactionStatus.SUCCESS;
             transaction.description = description || 'Chuyển khoản';
             transaction.fromAccount = fromAccount;
             transaction.toAccount = toAccount;
-
             const savedTransaction = await queryRunner.manager.save(transaction);
+
+            if (isLargeTx) {
+                await queryRunner.commitTransaction();
+                return {
+                    message: 'Giao dịch có giá trị lớn, đang chờ Admin phê duyệt.',
+                    data: { transactionId: savedTransaction.id }
+                };
+            }
+
+            // tinh tien
+            fromAccount.balance = currentBalance - amount;
+            await queryRunner.manager.save(fromAccount);
+            toAccount.balance = Number(toAccount.balance) + amount;
+            await queryRunner.manager.save(toAccount);
 
             // but toan tru tien nguoi gui
             const debitEntry = new LedgerEntry();
@@ -119,6 +127,87 @@ export class TransactionsService {
             await queryRunner.release();
         }
     }
+
+    async approveLargeTransaction(transactionId: string) {
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+            const lockedTx = await queryRunner.manager.findOne(Transaction, {
+                where: { id: transactionId, status: TransactionStatus.PENDING },
+                lock: { mode: 'pessimistic_write' }
+            });
+
+            if (!lockedTx) {
+                throw new NotFoundException('Không tìm thấy giao dịch PENDING.');
+            }
+
+            const transaction = await queryRunner.manager.findOne(Transaction, {
+                where: { id: transactionId },
+                relations: { fromAccount: true, toAccount: true }
+            });
+
+            if (!transaction) {
+                throw new NotFoundException('Không tìm thấy chi tiết giao dịch.');
+            }
+
+            const { fromAccount, toAccount, amount } = transaction;
+
+            const isFromFirst = fromAccount.accountNumber < toAccount.accountNumber;
+            if (isFromFirst) {
+                await queryRunner.manager.findOne(Account, { where: { id: fromAccount.id }, lock: { mode: 'pessimistic_write' } });
+                await queryRunner.manager.findOne(Account, { where: { id: toAccount.id }, lock: { mode: 'pessimistic_write' } });
+            } else {
+                await queryRunner.manager.findOne(Account, { where: { id: toAccount.id }, lock: { mode: 'pessimistic_write' } });
+                await queryRunner.manager.findOne(Account, { where: { id: fromAccount.id }, lock: { mode: 'pessimistic_write' } });
+            }
+
+            const currentBalance = Number(fromAccount.balance);
+            if (currentBalance < Number(amount)) {
+                throw new BadRequestException('Tài khoản người gửi không đủ số dư để duyệt giao dịch này.');
+            }
+
+            fromAccount.balance = currentBalance - Number(amount);
+            await queryRunner.manager.save(fromAccount);
+
+            toAccount.balance = Number(toAccount.balance) + Number(amount);
+            await queryRunner.manager.save(toAccount);
+
+            const debitEntry = new LedgerEntry();
+            debitEntry.account = fromAccount;
+            debitEntry.transaction = transaction;
+            debitEntry.type = LedgerEntryType.DEBIT;
+            debitEntry.amount = amount;
+            debitEntry.balanceAfter = fromAccount.balance;
+            await queryRunner.manager.save(debitEntry);
+
+            const creditEntry = new LedgerEntry();
+            creditEntry.account = toAccount;
+            creditEntry.transaction = transaction;
+            creditEntry.type = LedgerEntryType.CREDIT;
+            creditEntry.amount = amount;
+            creditEntry.balanceAfter = toAccount.balance;
+            await queryRunner.manager.save(creditEntry);
+
+            transaction.status = TransactionStatus.SUCCESS;
+            await queryRunner.manager.save(transaction);
+
+            await queryRunner.commitTransaction();
+
+            return {
+                message: 'Phê duyệt giao dịch thành công!',
+                data: { transactionId: transaction.id }
+            };
+
+        } catch (error) {
+            await queryRunner.rollbackTransaction();
+            throw error;
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
 
     async reverseTransaction(transactionId: string) {
         const queryRunner = this.dataSource.createQueryRunner();

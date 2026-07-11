@@ -10,6 +10,7 @@ import AdminLedger from './pages/AdminLedger';
 import AdminAuditLog from './pages/AdminAuditLog';
 import AdminTransactions from './pages/AdminTransactions';
 import Transfer from './pages/Transfer';
+import TellerTransfer from './pages/TellerTransfer';
 import History from './pages/History';
 import Settings from './pages/Settings';
 
@@ -40,6 +41,16 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const TellerRoute = ({ children }: { children: React.ReactNode }) => {
+  const user = useAuthStore((state) => state.user);
+
+  if (!user || user.role !== 'teller') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -55,6 +66,7 @@ function App() {
           <Route path="/admin/transactions" element={<AdminRoute><AdminTransactions /></AdminRoute>} />
           <Route path="/admin/ledger" element={<AdminRoute><AdminLedger /></AdminRoute>} />
           <Route path="/admin/audit" element={<AdminRoute><AdminAuditLog /></AdminRoute>} />
+          <Route path="/teller/transfer" element={<TellerRoute><TellerTransfer /></TellerRoute>} />
           <Route path="/transfer" element={<Transfer />} />
           <Route path='/history' element={<History />} />
           <Route path="/settings" element={<Settings />} />

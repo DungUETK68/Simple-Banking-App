@@ -36,6 +36,12 @@ const MainLayout = () => {
                         <Settings size={20} />
                         Cài đặt tài khoản
                     </NavLink>
+                    {user?.role === 'teller' && (
+                        <NavLink to="/teller/transfer" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                            <Send size={20} />
+                            Tạo giao dịch
+                        </NavLink>
+                    )}
                     {user?.role === 'admin' && (
                         <>
                             <NavLink to="/admin" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

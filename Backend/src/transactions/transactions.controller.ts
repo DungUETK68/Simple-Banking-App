@@ -3,6 +3,8 @@ import { TransactionsService } from './transactions.service';
 import { TransferDto } from './dto/transfer.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../entities/user.entity';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard)
@@ -12,8 +14,9 @@ export class TransactionsController {
     @Post('transfer')
     transfer(@Req() req: any, @Body() transferDto: TransferDto) {
         const userId = req.user.id;
+        const userRole = req.user.role;
 
-        return this.transactionsService.transfer(userId, transferDto);
+        return this.transactionsService.transfer(userId, userRole, transferDto);
     }
 
     @Post(':id/reverse')
@@ -45,5 +48,12 @@ export class TransactionsController {
         return this.transactionsService.getTransactions(userId, accountNumber, pageNum, limitNum, {
             type, minAmount, maxAmount, startDate, endDate
         });
+    }
+
+    @Post(':id/approve')
+    @UseGuards(RolesGuard)
+    @Roles(UserRole.ADMIN)
+    approveTransaction(@Param('id') id: string) {
+        return this.transactionsService.approveLargeTransaction(id);
     }
 }

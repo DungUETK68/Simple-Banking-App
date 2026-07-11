@@ -10,10 +10,11 @@ const AdminTransactions = () => {
     const [meta, setMeta] = useState<any>(null);
     const [filters, setFilters] = useState({ type: '', status: '', transactionId: '' });
 
-    // Modal state for Refund
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showApproveModal, setShowApproveModal] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
     const [isRefunding, setIsRefunding] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
 
     const fetchTransactions = async (currentPage: number) => {
         setLoading(true);
@@ -48,13 +49,28 @@ const AdminTransactions = () => {
         setIsRefunding(true);
         try {
             await axiosClient.post(`/transactions/${selectedTransaction.id}/reverse`);
-            alert('Hoàn tiền thành công!');
             setShowConfirmModal(false);
             fetchTransactions(page); // Reload current page
         } catch (error: any) {
             alert(error.response?.data?.message || 'Có lỗi xảy ra khi hoàn tiền');
         } finally {
             setIsRefunding(false);
+            setSelectedTransaction(null);
+        }
+    };
+
+    const handleApprove = async () => {
+        if (!selectedTransaction) return;
+
+        setIsApproving(true);
+        try {
+            await axiosClient.post(`/transactions/${selectedTransaction.id}/approve`);
+            setShowApproveModal(false);
+            fetchTransactions(page);
+        } catch (error: any) {
+            alert(error.response?.data?.message || 'Có lỗi xảy ra khi duyệt giao dịch');
+        } finally {
+            setIsApproving(false);
             setSelectedTransaction(null);
         }
     };
@@ -193,6 +209,20 @@ const AdminTransactions = () => {
                                             <RefreshCw size={14} style={{ marginRight: '4px', display: 'inline' }} /> Hoàn tiền
                                         </button>
                                     )}
+                                    {tx.status === 'pending' && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedTransaction(tx);
+                                                setShowApproveModal(true);
+                                            }}
+                                            disabled={isApproving}
+                                            className="action-btn"
+                                            style={{ backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', marginLeft: '5px' }}
+                                        >
+                                            <CheckCircle2 size={14} style={{ marginRight: '4px', display: 'inline' }} />
+                                            Duyệt
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -245,6 +275,42 @@ const AdminTransactions = () => {
                                 style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#ef4444', color: '#fff', cursor: 'pointer' }}
                             >
                                 {isRefunding ? 'Đang xử lý...' : 'Xác nhận Hoàn tiền'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Confirm Approve Modal */}
+            {showApproveModal && selectedTransaction && (
+                <div className="modal-overlay">
+                    <div className="modal-content confirm-modal">
+                        <h2>Xác nhận duyệt giao dịch</h2>
+                        <div style={{ margin: '20px 0', lineHeight: '1.5', color: '#334155' }}>
+                            <p>Bạn có chắc chắn muốn duyệt giao dịch này không?</p>
+                            <div style={{ padding: '15px', backgroundColor: '#f8fafc', borderRadius: '8px', marginTop: '15px' }}>
+                                <div><strong>Mã GD:</strong> {selectedTransaction.id}</div>
+                                <div><strong>Số tiền:</strong> {formatCurrency(Number(selectedTransaction.amount))}</div>
+                                <div><strong>Người gửi:</strong> {selectedTransaction.fromUserName} ({selectedTransaction.fromAccount})</div>
+                                <div><strong>Người nhận:</strong> {selectedTransaction.toUserName} ({selectedTransaction.toAccount})</div>
+                            </div>
+                        </div>
+                        <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                className="btn-cancel"
+                                onClick={() => { setShowApproveModal(false); setSelectedTransaction(null); }}
+                                disabled={isApproving}
+                                style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer' }}
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                className="btn-confirm"
+                                onClick={handleApprove}
+                                disabled={isApproving}
+                                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: '#fff', cursor: 'pointer' }}
+                            >
+                                {isApproving ? 'Đang xử lý...' : 'Xác nhận Duyệt'}
                             </button>
                         </div>
                     </div>

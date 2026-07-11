@@ -2,13 +2,15 @@ import { Controller, Get, Patch, Param, Body, UseGuards, BadRequestException, Qu
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { User, UserStatus } from '../entities/user.entity';
+import { User, UserRole, UserStatus } from '../entities/user.entity';
 import { DataSource, In } from 'typeorm';
 import { LedgerEntry } from '../entities/ledger-entry.entity';
 import { AuditLog } from 'src/entities/audit-log.entity';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
 export class AdminController {
     constructor(private readonly adminService: AdminService, private dataSource: DataSource) { }
 
@@ -48,7 +50,6 @@ export class AdminController {
     }
 
     @Get('audit-logs')
-    @UseGuards(RolesGuard)
     async getAuditLogs() {
         const logs = await this.dataSource.manager.find(AuditLog, {
             order: { createdAt: 'DESC' },
@@ -80,7 +81,6 @@ export class AdminController {
     }
 
     @Get('ledger-entries')
-    @UseGuards(RolesGuard)
     getLedgerEntries(
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',
@@ -98,13 +98,11 @@ export class AdminController {
     }
 
     @Get('users/:id/history')
-    @UseGuards(RolesGuard)
     getUserHistory(@Param('id') id: string) {
         return this.adminService.getUserHistory(id);
     }
 
     @Get('transactions')
-    @UseGuards(RolesGuard)
     getAllTransactions(
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',

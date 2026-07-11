@@ -3,6 +3,7 @@ import { Account } from './account.entity';
 
 export enum UserRole {
     CUSTOMER = 'customer',
+    TELLER = 'teller',
     ADMIN = 'admin',
 }
 

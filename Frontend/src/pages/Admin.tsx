@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import axiosClient from '../api/axiosClient';
-import { Search, Lock, Unlock, ShieldAlert, Clock, Info } from 'lucide-react';
+import { Lock, Unlock, Clock, Info } from 'lucide-react';
 import '../styles/admin.css';
 
 const Admin = () => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
-    
+
     // History Modal States
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [userHistory, setUserHistory] = useState<any[]>([]);
@@ -219,7 +219,7 @@ const Admin = () => {
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '20px' }}>
                             Hiển thị các lần thay đổi Email và Số điện thoại của tài khoản: <strong>{selectedUserForHistory?.fullName}</strong>
                         </p>
-                        
+
                         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                             {historyLoading ? (
                                 <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Đang tải dữ liệu...</div>
@@ -239,7 +239,7 @@ const Admin = () => {
                                                 <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
                                                 Thay đổi lúc: <strong>{formatDate(item.changedAt)}</strong>
                                             </div>
-                                            
+
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' }}>
                                                 <div style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                                     <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '4px' }}>Dữ liệu bị ghi đè</div>
@@ -252,7 +252,7 @@ const Admin = () => {
                                                     <div style={{ fontSize: '11px', color: '#166534', textTransform: 'uppercase', fontWeight: 'bold', marginBottom: '4px' }}>Dữ liệu mới</div>
                                                     <div style={{ fontSize: '13px', color: '#166534' }}>
                                                         {(() => {
-                                                            const newData = index === 0 
+                                                            const newData = index === 0
                                                                 ? { email: userHistory[0]?.user?.email || selectedUserForHistory?.email, phone: userHistory[0]?.user?.phoneNumber || selectedUserForHistory?.phoneNumber }
                                                                 : { email: userHistory[index - 1].oldEmail, phone: userHistory[index - 1].oldPhoneNumber };
                                                             return (
