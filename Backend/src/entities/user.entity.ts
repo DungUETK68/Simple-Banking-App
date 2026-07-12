@@ -36,6 +36,12 @@ export class User {
     @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
     status: UserStatus;
 
+    @Column({ name: 'failed_login_attempts', default: 0 })
+    failedLoginAttempts: number;
+
+    @Column({ name: 'lock_until', nullable: true, type: 'timestamp' })
+    lockUntil: Date | null;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 

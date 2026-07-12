@@ -1,4 +1,5 @@
 import { Controller, Post, Body, UseGuards, Req, Get, Query, BadRequestException, Param } from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { TransactionsService } from './transactions.service';
 import { TransferDto } from './dto/transfer.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -11,6 +12,8 @@ import { UserRole } from '../entities/user.entity';
 export class TransactionsController {
     constructor(private readonly transactionsService: TransactionsService) { }
 
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 10, ttl: 60000 } })
     @Post('transfer')
     transfer(@Req() req: any, @Body() transferDto: TransferDto) {
         const userId = req.user.id;

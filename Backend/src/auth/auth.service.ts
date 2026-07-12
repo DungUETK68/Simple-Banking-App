@@ -74,13 +74,31 @@ export class AuthService {
                 throw new UnauthorizedException('Email hoặc mật khẩu không đúng.');
             }
 
-            const isPasswordMatch = await bcrypt.compare(password, user.passwordHash);
-            if (!isPasswordMatch) {
-                throw new UnauthorizedException('Email hoặc mật khẩu không đúng.');
+            if (user.status === 'locked') {
+                throw new UnauthorizedException('Tài khoản của bạn đã bị khóa bởi Admin.');
             }
 
-            if (user.status === 'locked') {
-                throw new UnauthorizedException('Tài khoản của bạn đã bị khóa.');
+            if (user.lockUntil && user.lockUntil > new Date()) {
+                const lockTime = user.lockUntil.toLocaleTimeString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+                throw new UnauthorizedException(`Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau ${lockTime}`);
+            }
+
+            const isPasswordMatch = await bcrypt.compare(password, user.passwordHash);
+            if (!isPasswordMatch) {
+                user.failedLoginAttempts += 1;
+                if (user.failedLoginAttempts >= 5) {
+                    user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+                    await this.dataSource.manager.save(user);
+                    throw new UnauthorizedException('Tài khoản bị khóa 15 phút do nhập sai mật khẩu quá 5 lần.');
+                }
+                await this.dataSource.manager.save(user);
+                throw new UnauthorizedException(`Email hoặc mật khẩu không đúng. Bạn còn ${5 - user.failedLoginAttempts} lần thử.`);
+            }
+
+            if (user.failedLoginAttempts > 0 || user.lockUntil) {
+                user.failedLoginAttempts = 0;
+                user.lockUntil = null;
+                await this.dataSource.manager.save(user);
             }
 
             const tokens = await this.generateTokens(user, ipAddress, userAgent);
