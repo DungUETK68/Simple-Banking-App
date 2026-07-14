@@ -636,8 +636,16 @@ export class TransactionsService {
         };
     }
 
+    private isExpiredOTPCronRunning = false;
+
     @Cron(CronExpression.EVERY_MINUTE)
     async handleExpiredOTPTransactions() {
+        if (this.isExpiredOTPCronRunning) {
+            console.log('[CronJob] Tiến trình dọn dẹp OTP trước đó chưa hoàn tất, bỏ qua lượt chạy này.');
+            return;
+        }
+
+        this.isExpiredOTPCronRunning = true;
         try {
             const result = await this.dataSource.manager.update(Transaction, {
                 status: TransactionStatus.PENDING_OTP,
@@ -652,6 +660,8 @@ export class TransactionsService {
             }
         } catch (error) {
             console.error('[CronJob] Lỗi khi tự động hủy giao dịch hết hạn OTP:', error);
+        } finally {
+            this.isExpiredOTPCronRunning = false;
         }
     }
 }
