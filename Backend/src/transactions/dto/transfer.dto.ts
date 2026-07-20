@@ -10,7 +10,7 @@ export class TransferDto {
 
     @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Số tiền phải là một con số hợp lệ.' })
     @Min(1, { message: 'Số tiền chuyển tối thiểu là 1 VND.' })
-    @Max(10000000000, { message: 'Số tiền vượt quá hạn mức giao dịch cho phép.' })
+    @Max(100000000, { message: 'Số tiền vượt quá hạn mức giao dịch cho phép.' })
     amount: number;
 
     @IsOptional()

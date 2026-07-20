@@ -61,6 +61,35 @@ export class TransactionsService {
                 throw new BadRequestException('Số dư tài khoản không đủ để thực hiện giao dịch.');
             }
 
+            const DAILY_LIMIT = 200000000;
+            const vnTimeOffset = 7 * 60 * 60 * 1000;
+            const vnNow = new Date(Date.now() + vnTimeOffset);
+            const startOfDayVn = new Date(vnNow);
+            startOfDayVn.setUTCHours(0, 0, 0, 0);
+            const startOfDayUtc = new Date(startOfDayVn.getTime() - vnTimeOffset);
+            const endOfDayVn = new Date(vnNow);
+            endOfDayVn.setUTCHours(23, 59, 59, 999);
+            const endOfDayUtc = new Date(endOfDayVn.getTime() - vnTimeOffset);
+
+            const { totalSent } = await queryRunner.manager
+                .createQueryBuilder(Transaction, 'tx')
+                .select('SUM(tx.amount)', 'totalSent')
+                .where('tx.from_account_id = :accountId', { accountId: fromAccount.id })
+                .andWhere('tx.created_at BETWEEN :start AND :end', { start: startOfDayUtc, end: endOfDayUtc })
+                .andWhere('tx.status IN (:...statuses)', {
+                    statuses: [TransactionStatus.SUCCESS, TransactionStatus.PENDING, TransactionStatus.PENDING_OTP]
+                })
+                .getRawOne();
+
+            const totalSentToday = Number(totalSent) || 0;
+
+            if (totalSentToday + amount > DAILY_LIMIT) {
+                throw new BadRequestException(
+                    `Giao dịch vượt quá hạn mức ${DAILY_LIMIT.toLocaleString('vi-VN')} VND/ngày. ` +
+                    `Bạn đã giao dịch ${totalSentToday.toLocaleString('vi-VN')} VND trong hôm nay.`
+                );
+            }
+
             const LARGE_TX_LIMIT = 100000000;
             const isLargeTx = amount >= LARGE_TX_LIMIT && userRole === 'teller';
             const OTP_LIMIT = 10000000;
@@ -592,13 +621,18 @@ export class TransactionsService {
         }
 
         // khoang ngay
+        const vnTimeOffset = 7 * 60 * 60 * 1000;
+
         if (filters?.startDate) {
-            queryBuilder.andWhere('tx.createdAt >= :startDate', { startDate: new Date(filters.startDate) });
+            const start = new Date(filters.startDate);
+            const startUtc = new Date(start.getTime() - vnTimeOffset);
+            queryBuilder.andWhere('tx.createdAt >= :startDate', { startDate: startUtc });
         }
         if (filters?.endDate) {
             const end = new Date(filters.endDate);
             end.setHours(23, 59, 59, 999);
-            queryBuilder.andWhere('tx.createdAt <= :endDate', { endDate: end });
+            const endUtc = new Date(end.getTime() - vnTimeOffset);
+            queryBuilder.andWhere('tx.createdAt <= :endDate', { endDate: endUtc });
         }
 
         // trang thai
