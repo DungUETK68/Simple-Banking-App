@@ -127,9 +127,10 @@ export class AdminService {
             take: limit
         });
 
+        const isUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
         const userIds = [...new Set([
-            ...logs.map(log => log.actorId).filter(id => id),
-            ...logs.map(log => log.entityId).filter(id => id)
+            ...logs.map(log => log.actorId).filter(id => id && isUUID(id)),
+            ...logs.map(log => log.entityId).filter(id => id && isUUID(id))
         ])];
 
         const users = userIds.length > 0 ? await this.dataSource.manager.find(User, {

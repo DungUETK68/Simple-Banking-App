@@ -16,7 +16,8 @@ async function bootstrap() {
 
   app.use((req, res, next) => {
     const requestId = req.headers['x-request-id'] || crypto.randomUUID();
-    RequestContext.run({ requestId }, next);
+    req['requestId'] = requestId;
+    RequestContext.run(req, next);
   });
   
   app.enableCors();
