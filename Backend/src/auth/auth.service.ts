@@ -143,7 +143,18 @@ export class AuthService {
 
                     if (speed > 1000) {
                         user.isFlagged = true;
-                        user.flagReason = `Nghi ngờ: Tốc độ di chuyển bất thường ${Math.round(speed)} km/h (cách ${Math.round(distance)}km trong ${Math.round(timeDiffHours * 100) / 100} giờ). IP cũ: ${lastSession.ipAddress}, IP mới: ${ipAddress}`;
+                        
+                        const timeDiffSecs = Math.round(timeDiffHours * 3600);
+                        let timeString = '';
+                        if (timeDiffSecs < 60) {
+                            timeString = `${timeDiffSecs} giây`;
+                        } else if (timeDiffSecs < 3600) {
+                            timeString = `${Math.round(timeDiffSecs / 60)} phút`;
+                        } else {
+                            timeString = `${Math.round(timeDiffHours * 100) / 100} giờ`;
+                        }
+
+                        user.flagReason = `Nghi ngờ: Tốc độ di chuyển bất thường ${Math.round(speed)} km/h (cách ${Math.round(distance)}km trong ${timeString}). IP cũ: ${lastSession.ipAddress}, IP mới: ${ipAddress}`;
                         await this.dataSource.manager.save(User, user);
 
                         console.warn(`[FRAUD DETECTION] ${user.flagReason}`);
