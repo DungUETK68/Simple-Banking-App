@@ -5,7 +5,7 @@ import { BadRequestException } from '@nestjs/common';
 
 describe('TransactionsService - Transfer Logic', () => {
     let service: TransactionsService;
-    
+
     // 1. Khởi tạo QueryRunner giả
     const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),
@@ -26,6 +26,7 @@ describe('TransactionsService - Transfer Logic', () => {
         commitTransaction: jest.fn(),
         rollbackTransaction: jest.fn(),
         release: jest.fn(),
+        isTransactionActive: true,
         manager: mockManager,
     };
 
@@ -52,7 +53,7 @@ describe('TransactionsService - Transfer Logic', () => {
 
     describe('transfer() - Validation & Hạn mức', () => {
         const userId = 'user-1';
-        
+
         // Helper function để tạo DTO nhanh
         const createDto = (amount: number) => ({
             fromAccountNumber: '1111',
@@ -91,7 +92,7 @@ describe('TransactionsService - Transfer Logic', () => {
             mockManager.findOne
                 .mockResolvedValueOnce(null)
                 .mockResolvedValueOnce({ id: 'from-id', balance: 500000000 }) // fromAccount dư sức
-                .mockResolvedValueOnce({ id: 'to-id', balance: 0 }); 
+                .mockResolvedValueOnce({ id: 'to-id', balance: 0 });
 
             // Giả lập tổng giao dịch trong ngày đã là 190 triệu
             mockQueryBuilder.getRawOne.mockResolvedValueOnce({ totalSent: 190000000 });
@@ -105,27 +106,27 @@ describe('TransactionsService - Transfer Logic', () => {
         it('4. Phải vượt qua validation nếu chuyển đúng bằng chạm trần hạn mức (200 triệu)', async () => {
             mockManager.findOne
                 .mockResolvedValueOnce(null)
-                .mockResolvedValueOnce({ id: 'from-id', balance: 500000000 }) 
-                .mockResolvedValueOnce({ id: 'to-id', balance: 0 }); 
+                .mockResolvedValueOnce({ id: 'from-id', balance: 500000000 })
+                .mockResolvedValueOnce({ id: 'to-id', balance: 0 });
 
             // Giả lập hôm nay chưa giao dịch gì (0 đồng)
             mockQueryBuilder.getRawOne.mockResolvedValueOnce({ totalSent: 0 });
-            
+
             // Giả lập hàm save lưu thành công
             mockManager.save.mockResolvedValue({ id: 'tx-id' });
 
             // Thử chuyển đúng 200 triệu
             const result = await service.transfer(userId, 'teller', createDto(200000000));
-            
+
             expect(result).toBeDefined();
             expect(mockQueryRunner.commitTransaction).toHaveBeenCalled(); // Giao dịch phải được commit
         });
-        
+
         it('5. Phải ném lỗi nếu chuyển vượt hạn mức đúng 1 đồng (200 triệu + 1đ)', async () => {
             mockManager.findOne
                 .mockResolvedValueOnce(null)
-                .mockResolvedValueOnce({ id: 'from-id', balance: 500000000 }) 
-                .mockResolvedValueOnce({ id: 'to-id', balance: 0 }); 
+                .mockResolvedValueOnce({ id: 'from-id', balance: 500000000 })
+                .mockResolvedValueOnce({ id: 'to-id', balance: 0 });
 
             mockQueryBuilder.getRawOne.mockResolvedValueOnce({ totalSent: 0 });
 
@@ -133,6 +134,47 @@ describe('TransactionsService - Transfer Logic', () => {
             await expect(
                 service.transfer(userId, 'customer', createDto(200000001))
             ).rejects.toThrow(/Giao dịch vượt quá hạn mức/);
+        });
+    });
+
+    describe('Rollback khi giao dịch lỗi giữa chừng', () => {
+        it('Phải gọi rollbackTransaction và không commit khi gặp lỗi giữa 2 bước ghi sổ cái', async () => {
+            // 1. Giả lập tìm kiếm tài khoản hợp lệ
+            mockManager.findOne
+                .mockResolvedValueOnce(null) // Check Idempotency Key -> null
+                .mockResolvedValueOnce({ id: 'acc-A', balance: 1000000 }) // Tài khoản gửi A
+                .mockResolvedValueOnce({ id: 'acc-B', balance: 0 });      // Tài khoản nhận B
+
+            // Hôm nay chưa vượt hạn mức
+            mockQueryBuilder.getRawOne.mockResolvedValueOnce({ totalSent: 0 });
+
+            // 2. Giả lập lỗi giữa chừng khi save:
+            // Lần 1: save(Transaction) -> Thành công
+            // Lần 2: save(fromAccount) -> Thành công
+            // Lần 3: save(toAccount) -> Thành công
+            // Lần 4: save(debitEntry) -> Thành công (Đã ghi nợ A)
+            // Lần 5: save(creditEntry) -> BỊ LỖI MẤT KẾT NỐI DB!
+            mockManager.save
+                .mockResolvedValueOnce({ id: 'tx-1' })
+                .mockResolvedValueOnce({ balance: 900000 })
+                .mockResolvedValueOnce({ balance: 100000 })
+                .mockResolvedValueOnce({ id: 'debit-1' })
+                .mockRejectedValueOnce(new Error('Database Connection Lost'));
+
+            // 3. Thực thi và kiểm tra
+            await expect(
+                service.transfer('user-1', 'teller', {
+                    fromAccountNumber: '1111',
+                    toAccountNumber: '2222',
+                    amount: 100000,
+                    description: 'Chuyển tiền test rollback',
+                    idempotencyKey: 'key-rollback-test'
+                })
+            ).rejects.toThrow('Đã xảy ra lỗi hệ thống khi chuyển khoản.');
+
+            // 4. Assertions: Kiểm tra tính toàn vẹn transaction
+            expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled(); // Bắt buộc rollback!
+            expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled(); // Không được commit!
         });
     });
 });
